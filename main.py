@@ -3,19 +3,21 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+import numpy as np
 import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split
 
-from preprocess import preprocess, fix_seed
+from preprocess import preprocess, fix_seed, regularization
 from postprocess import evaluate
 from algorithm import Algorithm
 
-epoch = 5000
+epoch = 2000
 batch_size = 256
 
 seed = 1234
@@ -33,13 +35,14 @@ def main():
     result_dir = Path('./result')
     result_dir.mkdir(exist_ok=True)
 
-    train_data = pd.read_csv(input_dir / 'train.csv')
+    train_data_path = input_dir / 'train.csv'
+    test_data_path = input_dir / 'test.csv'
 
     # seedの固定
     fix_seed(seed)
 
     # preprocess
-    data, _ = preprocess(train_data)
+    data, _ = preprocess(train_data_path, test_data_path)
 
     # train_test_split
     train_data, test_data = train_test_split(data, random_state=0, test_size=0.1)
@@ -50,12 +53,17 @@ def main():
     X_test = test_data[:, :-1]
     y_test = test_data[:, -1]
 
+    # 正規化
+    X_train = regularization(X_train)
+    X_test = regularization(X_test)
+
     model_dict = {
         'dnn': Algorithm(epoch, batch_size),
+        'rfc': RandomForestClassifier(n_estimators=1000, max_depth=5, min_samples_split=4, min_samples_leaf=5, oob_score=True, random_state=seed, n_jobs=-1),
         'gnb': GaussianNB(),
         'lr': LogisticRegression(max_iter=1000000),
         'svm': LinearSVC(max_iter=1000000),
-        'gbdt': GradientBoostingClassifier(random_state=0)
+        'gbdt': GradientBoostingClassifier(n_estimators=1000, learning_rate=0.03, max_depth=5, random_state=0)
         }
 
     for model_name, model in model_dict.items():

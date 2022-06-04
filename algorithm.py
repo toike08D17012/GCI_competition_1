@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -69,9 +70,9 @@ class Algorithm:
 
         loss_list = []
 
-        prog = ProgressBar(max_value=self.epoch)
+        start_ = time.time()
         for ite in range(self.epoch):
-            prog.update(ite)
+            start = time.time()
             for X, y in train_loader:
                 # GPUメモリにデータを移動
                 X = X.to(self.device)
@@ -83,7 +84,11 @@ class Algorithm:
 
             loss_list.append(loss)
 
-            if ite + 1 % 100 == 0:
+            elapsed_time = time.time() - start
+            elapsed_time_total = time.time() - start_
+            print(f'iteration: {ite + 1}, loss: {loss:5f}, elpsed time(epoch): {elapsed_time:5f}, elpsed time(total): {elapsed_time_total:5f}')
+
+            if (ite + 1) % 100 == 0:
                 # checkpointの設定
                 checkpoint = {
                     'epoch': ite,
@@ -94,9 +99,22 @@ class Algorithm:
                 torch.save(checkpoint, self.checkpoint_path / 'checkpoint.cpt')
                 torch.save(checkpoint, self.checkpoint_path / f'checkpoint_{ite+1}.cpt')
 
-                plt.figure()
                 plt.plot(loss_list)
                 plt.savefig(result_dir / f'loss_{ite+1}.png')
+
+            if loss < 0.075:
+                checkpoint = {
+                    'epoch': ite,
+                    'model_state_dict': self.model.state_dict(),
+                    'opt_state_dict': self.optimizer.state_dict(),
+                    'loss': loss_list
+                }
+                torch.save(checkpoint, self.checkpoint_path / 'checkpoint.cpt')
+
+                plt.plot(loss_list)
+                plt.savefig(result_dir / f'loss_{ite+1}.png')
+                plt.clf()
+                break
 
         return loss_list
 
